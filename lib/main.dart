@@ -39,14 +39,14 @@ class MyApp extends StatelessWidget {
         "profile": (context)=> const ProfileScreen(),
         "students": (context)=> const StudentsScreen()
       },
-      // initialRoute: "splash",
-      home: Scaffold(body: Center(child:
-      CountdownWidget(
-        time: DateTime.now(),
-        color: const Color(0xFFC57979),
-        width: 300,
-        height: 70,
-      ))),
+      initialRoute: "splash",
+      // home: Scaffold(body: Center(child:
+      // CountdownWidget(
+      //   time: DateTime.now().copyWith(minute: 31),
+      //   color: const Color(0xFFC57979),
+      //   width: 300,
+      //   height: 70,
+      // ))),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:cgpa_calcultor/core/auth/viewModel/auth_view_model.dart';
 import 'package:cgpa_calcultor/core/calculator/models/results.dart';
 import 'package:cgpa_calcultor/global%20widgets/common_button.dart';
 import 'package:cgpa_calcultor/main.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../global widgets/method_widgets.dart';
 import '../models/course.dart';
@@ -64,18 +65,40 @@ class _CGPACalculatorState extends State<CGPACalculator> {
     );
   }
 
-  calculateGPA() async{
+  calculateGPA() async {
+    if(courses.isEmpty){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add Courses'),
+        ),
+      );
+      return ;
+    }
     double totalGradePoints = 0;
     int totalUnits = 0;
+    List<Course> carryOvers = [];
     for (var course in courses) {
+      if(course.name.isEmpty){
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Check course details, error occurred'),
+          ),
+        );
+        return ;
+      }
       var unit = int.parse(course.units);
+      if (int.parse(course.score) < 40) {
+        carryOvers.add(course);
+      }
       if (unit > 0 && course.score.isNotEmpty) {
         totalGradePoints += unit * getGradePoints(course.score);
         totalUnits += unit;
       }
     }
-    double gpa = double.parse((totalGradePoints / totalUnits).toStringAsFixed(2));
-    await updateInDatabase(gpa);
+    double gpa =
+        double.parse((totalGradePoints / totalUnits).toStringAsFixed(2));
+
+    await updateInDatabase(gpa, carryOvers);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Your GPA for the semester is: $gpa'),
@@ -83,52 +106,120 @@ class _CGPACalculatorState extends State<CGPACalculator> {
     );
   }
 
-  updateInDatabase(cgpa)async{
+  updateInDatabase(double cgpa, List<Course> carries) async {
     Result result = Result(
         level: AuthViewModel.instance.user!.level!,
         semester: AuthViewModel.instance.user!.semester!,
         gpa: cgpa,
         courses: jsonEncode(courses));
-    var oldData = await firestore.collection("results").doc(AuthViewModel.instance.user!.uid).get();
-    if(!oldData.exists){
-      await firestore.collection("results").doc(AuthViewModel.instance.user!.uid).set(
-          {
-            "results" : [result.toJson()]
-          });
-    }else {
-      firestore.collection("results").doc(AuthViewModel.instance.user!.uid).set(
-          {
-            "results": [
-              ...oldData["results"],
-              result.toJson()
-            ]
-          });
+    var oldData = await firestore
+        .collection("results")
+        .doc(AuthViewModel.instance.user!.uid)
+        .get();
+    if (!oldData.exists) {
+      await firestore
+          .collection("results")
+          .doc(AuthViewModel.instance.user!.uid)
+          .set({
+        "results": [result.toJson()]
+      });
+    } else {
+      firestore
+          .collection("results")
+          .doc(AuthViewModel.instance.user!.uid)
+          .set({
+        "results": [...oldData["results"], result.toJson()]
+      });
+    }
+
+    var userdata = await firestore
+        .collection("users")
+        .doc(AuthViewModel.instance.user!.uid)
+        .get();
+    List jsonCarries = carries.map((e) => jsonEncode(e)).toList();
+
+    if (!userdata.data()!.containsKey("carryOvers")) {
+      await firestore
+          .collection("users")
+          .doc(AuthViewModel.instance.user!.uid)
+          .update({"carryOvers": jsonCarries});
+    } else {
+      firestore
+          .collection("users")
+          .doc(AuthViewModel.instance.user!.uid)
+          .update({"carryOvers": FieldValue.arrayUnion(jsonCarries)});
+    }
+    var oldSemester = AuthViewModel.instance.user!.semester!.toLowerCase();
+    var oldLevel = AuthViewModel.instance.user!.level!;
+
+
+    var newLevel = oldSemester == "Rain".toLowerCase()
+        ? (AuthViewModel.instance.user!.level! + 100)
+        : AuthViewModel.instance.user!.level!;
+
+    var oldCGPA = userdata["cgpa"] == null
+        ? 0.0
+        : double.parse(userdata["cgpa"]);
+    var newSemester =
+        oldSemester == "Rain".toLowerCase() ? "Harmattan" : "Rain";
+    print(" New level $newLevel");
+    print("New Semester $newSemester");
+    await firestore
+        .collection("users")
+        .doc(AuthViewModel.instance.user!.uid)
+        .update({
+      "level": newLevel,
+      "semester": newSemester,
+      "cgpa": calculateNewCGPA(
+          currentLevel: oldLevel.toString(),
+          currentSemester: oldSemester,
+          currentCGPA: oldCGPA,
+          newGPA: cgpa)
+    });
+    AuthViewModel.instance.user!.semester = newSemester;
+    AuthViewModel.instance.user!.level = newLevel;
+  }
+
+  String calculateNewCGPA(
+      {required String currentLevel,
+      required String currentSemester,
+      required double currentCGPA,
+      required double newGPA}) {
+
+
+    int totalSemesters = 0;
+    int level = int.parse(currentLevel);
+
+    switch (level) {
+      case 100:
+        totalSemesters = currentSemester == 'harmattan' ? 0 : 1;
+        break;
+      case 200:
+        totalSemesters = currentSemester == 'harmattan' ? 2 : 3;
+        break;
+      case 300:
+        totalSemesters = currentSemester == 'harmattan' ? 4 : 5;
+        break;
+      case 400:
+        totalSemesters = currentSemester == 'harmattan' ? 6 : 7;
+        break;
+      case 500:
+        totalSemesters = currentSemester == 'harmattan' ? 8 : 9;
+        break;
+      default:
+        totalSemesters = 0; // Default value if the level doesn't match any case
+        break;
     }
 
 
-    var newLevel = AuthViewModel.instance.user!.semester!.toLowerCase() == "Rain".toLowerCase() ? (AuthViewModel.instance.user!.level! + 100) : AuthViewModel.instance.user!.level!;
-   var newSemester = AuthViewModel.instance.user!.semester!.toLowerCase() == "Rain".toLowerCase() ? "Harmattan" : "Rain";
-    print(newLevel);
-    print(newSemester);
-   await firestore.collection("users").doc(AuthViewModel.instance.user!.uid).update({
-      "level": newLevel,
-      "semester": newSemester
-    });
-   AuthViewModel.instance.user!.semester = newSemester;
-   AuthViewModel.instance.user!.level = newLevel;
-  }
+    print("Total semesters :$totalSemesters");
+    print("Total ccgpa :$currentCGPA");
+    print("Total newG :$newGPA");
 
-
-  forAll(){
-    // double totalCreditPoints = 0;
-    // int totalUnits = 0;
-    // for (var semester in semesters) {
-    //   double totalCreditPoints += total credit points for semester;
-    //   int semesterUnits += total units for semester;
-  // }
-  //
-  // double cgpa = totalCreditPoints / totalUnits;
-  // return cgpa;
+    // Add your calculation logic here based on the new GPA and current CGPA
+    double newCGPA =
+        ((currentCGPA * totalSemesters) + newGPA) / (totalSemesters + 1);
+    return newCGPA.toStringAsFixed(2);
   }
 
   double getGradePoints(String score) {

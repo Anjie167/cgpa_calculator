@@ -7,7 +7,7 @@ class Course {
   String score;
 
 
-  Course({this.name = '', this.units = "0", this.score = ""});
+  Course({this.name = '', this.units = "0", this.score = "0"});
   
 
   factory Course.fromSnapshot(DocumentSnapshot snapshot) {

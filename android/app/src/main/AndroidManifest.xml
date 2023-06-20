@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.sage.cgpa_calculator">
-   <application
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
         android:label="CGPA Calculator"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
