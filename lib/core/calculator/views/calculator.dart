@@ -66,6 +66,14 @@ class _CGPACalculatorState extends State<CGPACalculator> {
   }
 
   calculateGPA() async {
+    if(AuthViewModel.instance.user!.level == 600){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You Already graduated'),
+        ),
+      );
+      return ;
+    }
     if(courses.isEmpty){
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,15 +159,16 @@ class _CGPACalculatorState extends State<CGPACalculator> {
     }
     var oldSemester = AuthViewModel.instance.user!.semester!.toLowerCase();
     var oldLevel = AuthViewModel.instance.user!.level!;
+    var oldCGPA = userdata["cgpa"] == null
+        ? 0.0
+        : double.parse(userdata["cgpa"]);
 
 
     var newLevel = oldSemester == "Rain".toLowerCase()
         ? (AuthViewModel.instance.user!.level! + 100)
         : AuthViewModel.instance.user!.level!;
 
-    var oldCGPA = userdata["cgpa"] == null
-        ? 0.0
-        : double.parse(userdata["cgpa"]);
+
     var newSemester =
         oldSemester == "Rain".toLowerCase() ? "Harmattan" : "Rain";
     print(" New level $newLevel");
