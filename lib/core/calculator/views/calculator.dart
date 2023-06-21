@@ -69,7 +69,7 @@ class _CGPACalculatorState extends State<CGPACalculator> {
     if(AuthViewModel.instance.user!.level == 600){
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You Already graduated'),
+          content: Text('You already graduated'),
         ),
       );
       return ;
